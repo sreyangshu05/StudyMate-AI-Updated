@@ -1,0 +1,13 @@
+StudyMate Mobile Wireframe
+
++-------------------------------+
+| [PDF Viewer]                  |
+|  Page X  [PDF Img]            |
++-------------------------------+
+| [Tab Nav: Home | Reader | ...]|
++-------------------------------+
+| [Chat/Quiz/Notes]             |
+|  (one at a time, card style)  |
++-------------------------------+
+| [Dashboard: chart, tags]      |
++-------------------------------+

@@ -1,0 +1,20 @@
+-- StudyMate database schema
+--
+-- NOTE: This file is a historical reference only. The authoritative schema is
+-- defined and applied by the versioned migration runner at:
+--
+--     backend/src/db/migrations.js
+--
+-- which owns the schema via `PRAGMA user_version` (current production schema is
+-- v2). To (re)create or upgrade a database, run:
+--
+--     cd backend && npm run migrate
+--
+-- The earlier design in this file described a PostgreSQL/pgvector layout that
+-- the project does not use. The live backend is SQLite (WAL, foreign keys on)
+-- with ownership-scoped tables:
+--
+--   users, documents, passages, quizzes, quiz_documents, questions, attempts,
+--   user_stats, chats, chat_messages
+--
+-- See src/services/database.js (connection) and src/db/migrations.js (schema).

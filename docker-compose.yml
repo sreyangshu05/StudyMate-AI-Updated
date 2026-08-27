@@ -1,0 +1,46 @@
+# StudyMate — production-ish local deployment.
+#   docker compose up --build
+# The backend requires a JWT_SECRET; the compose file reads it from a .env file
+# in the repo root (gitignored). Never commit a real secret.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: studymate-backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file}
+      DATABASE_PATH: /app/backend/data/studymate.db
+      STORAGE_PATH: /app/backend/uploads
+      CORS_ORIGINS: http://localhost:8080
+      # Optional AI keys for real embeddings/LLMs:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    volumes:
+      - backend-data:/app/backend/data
+      - backend-uploads:/app/backend/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/api/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: studymate-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      VITE_API_BASE_URL: /api
+
+volumes:
+  backend-data:
+  backend-uploads:

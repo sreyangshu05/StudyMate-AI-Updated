@@ -1,0 +1,12 @@
+StudyMate Desktop Wireframe
+
++---------------------------------------------------------------+
+| [SourceSelector] | [PDF Viewer] | [Chat/Quiz/Notes Tabs]      |
+|------------------|-------------|-----------------------------|
+|  All PDFs        |  Page X     |  [Chat] [Quiz] [Notes]      |
+|  + Upload        |  [PDF Img]  |                             |
+|------------------|-------------|  Chat/Quiz UI here          |
+|                  |  Scroll     |                             |
++---------------------------------------------------------------+
+| [Progress Dashboard: chart, tags, quick actions]              |
++---------------------------------------------------------------+
