@@ -2,7 +2,7 @@
 // cross-user data is touched. After deletion the tokens stop working.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupTestApp, api, startStubAIProvider, useStubAI } from './helpers.js';
+import { setupTestApp, api, startStubAIProvider, useStubAI, drainIngestQueue } from './helpers.js';
 import { makeMultiPagePdf } from './pdfgen.js';
 
 let ctx, call, stub, db;
@@ -29,6 +29,7 @@ async function seedUser(email) {
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}` }, body: form })).json();
   const docId = up.data.docId;
   await call.req('POST', '/api/documents/ingest', { token: u.token, body: { docId } });
+  await drainIngestQueue();
   // a chat + message
   const chat = await call.req('POST', '/api/chat', { token: u.token, body: {} });
   const chatId = chat.json.data.chatId;

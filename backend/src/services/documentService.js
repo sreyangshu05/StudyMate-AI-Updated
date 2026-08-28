@@ -1,9 +1,10 @@
 // Document lifecycle orchestration.
-//   UPLOADING -> UPLOADED -> PROCESSING -> READY
-//                              \-> FAILED
+//   UPLOADING -> PROCESSING -> READY
+//                    \-> FAILED
 // Upload validates magic bytes, stores the file with a generated name, then
-// processing extracts per-page text and stores ownership-scoped embeddings.
-// On any failure the physical file is cleaned up and the row is marked FAILED.
+// async processing extracts per-page text and stores ownership-scoped
+// embeddings. On any failure the row is marked FAILED (file kept for retry).
+// This service is now driven by the in-process ingest queue (see ingestQueue.js).
 
 import fs from 'fs';
 import path from 'path';

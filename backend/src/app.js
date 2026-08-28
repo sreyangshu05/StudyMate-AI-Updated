@@ -47,6 +47,13 @@ export function createApp() {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
+    // CSP with no 'unsafe-eval': defense-in-depth against the pdfjs-dist
+    // eval("require") caveat (gated behind isNodeJS, unreachable in browser).
+    // Applies to any API response rendered in a browser context.
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; frame-ancestors 'none'"
+    );
     next();
   });
 

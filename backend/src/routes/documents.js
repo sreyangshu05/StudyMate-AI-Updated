@@ -5,6 +5,7 @@ import express from 'express';
 import multer from 'multer';
 import { authenticate } from '../middleware/auth.js';
 import { DocumentService } from '../services/documentService.js';
+import { ingestQueue } from '../services/ingestQueue.js';
 import { getDatabase } from '../services/database.js';
 import config from '../config.js';
 import { ok, NotFoundError, ValidationError } from '../errors.js';
@@ -48,21 +49,47 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res, nex
   } catch (err) { return next(err); }
 });
 
-// Ingest/process: extract per-page text + embeddings.
+// Ingest/process: enqueue the document for async extraction + embeddings.
+// Returns immediately with PROCESSING; the background worker transitions the
+// document to READY or FAILED (poll GET /api/documents/:id for the terminal
+// state). This stops large PDFs from holding the HTTP request open.
 router.post('/ingest', authenticate, async (req, res, next) => {
   try {
     const { docId } = req.body;
     if (!docId) throw new ValidationError('Document ID is required');
-    const result = await documentService.processDocument(Number(docId), req.user.userId);
-    return ok(res, { status: result.document.status, chunks: result.chunks, pages: result.document.pages });
+
+    // Verify ownership before enqueueing so a foreign/cross-user enqueue is
+    // rejected (the worker also re-checks ownership inside processDocument).
+    const db = getDatabase();
+    const doc = await db.get(
+      'SELECT id FROM documents WHERE id = ? AND user_id = ?',
+      [Number(docId), req.user.userId]
+    );
+    if (!doc) throw new NotFoundError('Document not found');
+
+    // Mark PROCESSING up-front so a poll immediately after this 202 sees a
+    // non-stale state, even before the worker ticks.
+    await db.run("UPDATE documents SET status = 'PROCESSING', error = NULL WHERE id = ?", [Number(docId)]);
+
+    const result = ingestQueue.enqueue(docId, req.user.userId);
+    return ok(res, { status: 'PROCESSING', enqueued: result.enqueued, docId: Number(docId) }, 202);
   } catch (err) { return next(err); }
 });
 
-// Retry processing a FAILED document.
+// Retry processing a FAILED document (re-enqueue).
 router.post('/:id/retry', authenticate, async (req, res, next) => {
   try {
-    const result = await documentService.processDocument(Number(req.params.id), req.user.userId);
-    return ok(res, { status: result.document.status, chunks: result.chunks });
+    const db = getDatabase();
+    const doc = await db.get(
+      'SELECT id, status FROM documents WHERE id = ? AND user_id = ?',
+      [Number(req.params.id), req.user.userId]
+    );
+    if (!doc) throw new NotFoundError('Document not found');
+
+    await db.run("UPDATE documents SET status = 'PROCESSING', error = NULL WHERE id = ?", [Number(req.params.id)]);
+
+    const result = ingestQueue.enqueue(req.params.id, req.user.userId);
+    return ok(res, { status: 'PROCESSING', enqueued: result.enqueued, docId: Number(req.params.id) }, 202);
   } catch (err) { return next(err); }
 });
 

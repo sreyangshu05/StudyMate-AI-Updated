@@ -5,7 +5,9 @@
 //  - Prompt-injection guard is actually embedded in the RAG system prompt.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupTestApp, api, startStubAIProvider, useStubAI } from './helpers.js';
+import {
+  setupTestApp, api, startStubAIProvider, useStubAI, drainIngestQueue, waitForDocument,
+} from './helpers.js';
 import { makeMultiPagePdf } from './pdfgen.js';
 
 let ctx, call, stub;
@@ -50,10 +52,15 @@ test('CORS blocks disallowed origins', async () => {
   assert.notEqual(allowOrigin, 'https://evil.example.com');
 });
 
-test('security headers present (nosniff, frame deny)', async () => {
+test('security headers present (nosniff, frame deny, CSP without unsafe-eval)', async () => {
   const res = await fetch(`${ctx.base}/api/health`);
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  const csp = res.headers.get('content-security-policy');
+  assert.ok(csp, 'Content-Security-Policy header must be present');
+  assert.ok(!csp.includes('unsafe-eval'),
+    'CSP must not allow unsafe-eval (pdfjs eval defense-in-depth)');
+  assert.ok(csp.includes("frame-ancestors 'none'"), 'CSP must block framing');
 });
 
 test('IDOR: B cannot read a specific doc of A (404, no existence leak)', async () => {
@@ -81,7 +88,12 @@ test('IDOR: B cannot delete A document (404)', async () => {
 
 test('IDOR: B QA with A doc id is ownership-scoped (groundless, empty citations)', async () => {
   const up = await uploadPdf(alice.token);
-  await call.req('POST', `/api/documents/${up.docId}/ingest`, { token: alice.token });
+  // Ingest Alice's doc fully (correct endpoint, same as the routing contract),
+  // so the ownership assertion below is meaningful: Alice's doc IS indexed.
+  const enq = await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId: up.docId } });
+  assert.equal(enq.status, 202);
+  await drainIngestQueue();
+  await waitForDocument(call.req.bind(call), alice.token, up.docId);
   const r = await call.req('POST', '/api/qa', {
     token: bob.token,
     body: { query: 'Newton law?', docIds: [up.docId] },

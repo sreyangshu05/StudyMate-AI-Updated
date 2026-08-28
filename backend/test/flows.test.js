@@ -5,7 +5,9 @@
 //  - full happy path: upload -> ingest -> QA -> quiz -> attempt
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupTestApp, api, startStubAIProvider, useStubAI } from './helpers.js';
+import {
+  setupTestApp, api, startStubAIProvider, useStubAI, drainIngestQueue, waitForDocument,
+} from './helpers.js';
 import { makeMultiPagePdf } from './pdfgen.js';
 
 let ctx, call, stub;
@@ -87,7 +89,11 @@ test('full happy path: upload -> ingest -> QA grounded answer', async () => {
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
   const docId = up.data.docId;
   const ig = await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId } });
-  assert.equal(ig.json.data.status, 'READY');
+  // Async ingest: 202 PROCESSING, then the worker reaches READY.
+  assert.equal(ig.status, 202);
+  await drainIngestQueue();
+  const ready = await waitForDocument(call.req.bind(call), alice.token, docId);
+  assert.equal(ready.status, 'READY');
   const qa = await call.req('POST', '/api/qa', { token: alice.token, body: { query: 'Newton', docIds: [docId] } });
   // stub may or may not reach LLM; must at least be a clean 200 with answer
   assert.ok([200, 502].includes(qa.status));

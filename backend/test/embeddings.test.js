@@ -5,19 +5,25 @@
 //  - deletePassagesForDoc removes rows
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupTestApp, api, startStubAIProvider, useStubAI } from './helpers.js';
+import {
+  setupTestApp, api, startStubAIProvider, useStubAI, drainIngestQueue, waitForDocument,
+} from './helpers.js';
 import { makeMultiPagePdf } from './pdfgen.js';
 
 let ctx, call, stub, db;
 let alice, bob;
 
+// Upload a PDF and drive async ingest to completion, returning the docId and
+// the post-ingest document record (READY).
 async function uploadAndIngest(token, pages) {
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(pages))], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })).json();
   const docId = up.data.docId;
   const ig = await call.req('POST', '/api/documents/ingest', { token, body: { docId } });
-  return { docId, ingest: ig };
+  await drainIngestQueue();
+  const doc = await waitForDocument(call.req.bind(call), token, docId);
+  return { docId, ingest: ig, doc };
 }
 
 before(async () => {
@@ -36,11 +42,15 @@ after(async () => {
   ctx.cleanup();
 });
 
-test('ingest produces READY with real per-page chunks', async () => {
-  const { ingest } = await uploadAndIngest(alice.token, ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']);
-  assert.equal(ingest.json.data.status, 'READY');
-  assert.equal(ingest.json.data.pages, 3);
-  assert.ok(ingest.json.data.chunks >= 1);
+test('ingest enqueues async (202) and produces READY with real per-page chunks', async () => {
+  const { ingest, doc } = await uploadAndIngest(alice.token, ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']);
+  // Async by design: the ingest call returns 202 PROCESSING, not READY.
+  assert.equal(ingest.status, 202);
+  assert.equal(ingest.json.data.status, 'PROCESSING');
+  // After draining the queue the document is READY with real page count.
+  assert.equal(doc.status, 'READY');
+  assert.equal(doc.pages, 3);
+  assert.ok(doc.chunk_count >= 1);
 });
 
 test('search finds the user own doc and stays within the user scope', async () => {

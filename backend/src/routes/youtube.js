@@ -1,36 +1,55 @@
-// YouTube integration is DISABLED.
+// YouTube integration — real YouTube Data API v3, feature-gated.
 //
-// The previous implementation returned fabricated videos (fake video ids, fake
-// view counts) which must not be presented as real recommendations. Real
-// integration requires server-side credentials and quota handling. It is not
-// currently configured, so these endpoints report a clear 503 instead of mock data.
+// When YOUTUBE_ENABLED=true and YOUTUBE_API_KEY are set, endpoints return real
+// video data from the YouTube Data API v3 (server-side, no client-side keys).
+// When disabled (the default), endpoints return 503 FEATURE_DISABLED.
+// No mock/fabricated data is ever returned.
 
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
 import config from '../config.js';
 import { ProviderError } from '../errors.js';
+import { getRecommendations, getTrending } from '../services/youtubeService.js';
 
 const router = express.Router();
 
-function disabled(_req, res) {
-  if (!config.youtubeEnabled || !config.youtubeApiKey) {
-    const error = new ProviderError(
-      'YouTube recommendations are not configured. Set YOUTUBE_ENABLED=true and YOUTUBE_API_KEY to enable real integration.'
-    );
-    error.status = 503;
-    error.code = 'FEATURE_DISABLED';
-    return res.status(503).json({
-      success: false,
-      error: { code: 'FEATURE_DISABLED', message: error.message },
-    });
-  }
+// Wrap async handlers so errors propagate to the error middleware (which maps
+// ProviderError to the right status + code).
+function wrap(fn) {
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+}
+
+function disabled(res) {
   return res.status(503).json({
     success: false,
-    error: { code: 'FEATURE_DISABLED', message: 'YouTube integration is not ready for production use.' },
+    error: {
+      code: 'FEATURE_DISABLED',
+      message:
+        'YouTube recommendations are not configured. Set YOUTUBE_ENABLED=true and YOUTUBE_API_KEY to enable real integration.',
+    },
   });
 }
 
-router.get('/recommendations', authenticate, disabled);
-router.get('/trending', authenticate, disabled);
+router.get(
+  '/recommendations',
+  authenticate,
+  wrap(async (req, res) => {
+    if (!config.youtubeEnabled || !config.youtubeApiKey) return disabled(res);
+    const { topic, maxResults } = req.query;
+    const videos = await getRecommendations(topic, maxResults);
+    res.json({ success: true, data: { videos } });
+  })
+);
+
+router.get(
+  '/trending',
+  authenticate,
+  wrap(async (req, res) => {
+    if (!config.youtubeEnabled || !config.youtubeApiKey) return disabled(res);
+    const { category, maxResults } = req.query;
+    const videos = await getTrending(category, maxResults);
+    res.json({ success: true, data: { videos } });
+  })
+);
 
 export default router;

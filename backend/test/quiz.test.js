@@ -5,18 +5,23 @@
 //  - invalid question ids in an attempt are rejected
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupTestApp, api, startStubAIProvider, useStubAI } from './helpers.js';
+import {
+  setupTestApp, api, startStubAIProvider, useStubAI, drainIngestQueue, waitForDocument,
+} from './helpers.js';
 import { makeMultiPagePdf } from './pdfgen.js';
 
 let ctx, call, stub;
 let alice, bob, docId;
 
+// Upload a PDF for Alice and drive async ingest to READY. Returns the docId.
 async function uploadIngestAlice(pages = ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']) {
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(pages))], { type: 'application/pdf' }), 'doc.pdf');
-  await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form });
-  const ig = await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId } });
-  return ig;
+  const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
+  const id = up.data.docId;
+  await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId: id } });
+  await drainIngestQueue();
+  return id;
 }
 
 before(async () => {
@@ -32,6 +37,8 @@ before(async () => {
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
   docId = up.data.docId;
   await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId } });
+  await drainIngestQueue();
+  await waitForDocument(call.req.bind(call), alice.token, docId);
 });
 
 after(async () => {

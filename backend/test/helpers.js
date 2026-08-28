@@ -129,6 +129,45 @@ export async function useStubAI(baseURL) {
 }
 
 // ---------------------------------------------------------------------------
+// Async-ingest helpers. The documents API is async by design (upload returns,
+// the background worker processes). Tests that need a processed document await
+// the ingest queue and then poll for the terminal READY/FAILED state instead of
+// assuming the ingest response itself is READY.
+// ---------------------------------------------------------------------------
+
+/**
+ * Await the in-process ingest queue until it is quiescent. Safe when the queue
+ * is already empty. Prefer this over raw sleeps so tests stay deterministic.
+ */
+export async function drainIngestQueue(timeoutMs = 30000) {
+  const { ingestQueue } = await import('../src/services/ingestQueue.js');
+  return ingestQueue.drain(timeoutMs);
+}
+
+/**
+ * Poll a document until it reaches a given terminal status (default READY),
+ * then return the document record. Throws on timeout with the last polled
+ * status for a clear failure.
+ */
+export async function waitForDocument(apiFn, userIdToken, docId, { status = 'READY', timeoutMs = 15000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const r = await apiFn('GET', `/api/documents/${docId}`, { token: userIdToken });
+    if (r.status === 404) return null;
+    if (r.status === 200 && r.json?.data?.document) {
+      last = r.json.data.document;
+      if (last.status === status) return last;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const err = new Error(`waitForDocument timed out waiting for status=${status} (last=${last?.status || 'unknown'})`);
+  err.lastStatus = last?.status;
+  err.lastError = last?.error;
+  throw err;
+}
+
+// ---------------------------------------------------------------------------
 // Isolated test backend instance against a fresh temp DB/storage.
 // Returns an already-listening server plus the DB/root for cleanup.
 // ---------------------------------------------------------------------------

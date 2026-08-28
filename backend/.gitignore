@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+# environment
+.env
+# runtime data — SQLite DBs, uploads, logs
+data/
+uploads/
+*.db
+*.db-shm
+*.db-wal
+*.log

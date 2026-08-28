@@ -82,12 +82,12 @@ Correct answers are stored server-side and **never** returned by the read endpoi
 - `GET /export` — downloads all your data as JSON: profile, documents, quizzes + questions (with your own correct answers), attempts, chats, stats.
 - `DELETE /account` — permanently deletes the account and every owned row (passages, quizzes, questions, attempts, documents + files, stats, chats, messages), idempotent, 404 if already gone. Tokens stop working afterwards.
 
-## YouTube (feature-flagged)
+## YouTube (feature-flagged, real YouTube Data API v3)
 
-- `GET /youtube/recommendations?topic=&maxResults=`
-- `GET /youtube/trending?category=&maxResults=`
+- `GET /youtube/recommendations?topic=&maxResults=` — Search for educational videos by topic. Returns enriched video objects (title, channel, views, likes, duration, thumbnail, URL). `maxResults` is clamped to 1-50 (default 10).
+- `GET /youtube/trending?category=&maxResults=` — Most popular videos, optionally filtered by YouTube video category ID (e.g. `27` for Education). Same maxResults clamping.
 
-Both return `503 FEATURE_DISABLED` unless `YOUTUBE_ENABLED=true` **and** `YOUTUBE_API_KEY` are set. The feature is off by default.
+Both return `503 FEATURE_DISABLED` unless `YOUTUBE_ENABLED=true` **and** `YOUTUBE_API_KEY` are set. When enabled, requests go to the YouTube Data API v3 server-side (the API key never reaches the browser). Responses are `{ success: true, data: { videos: [...] } }`. No mock or fabricated data is ever returned — either real API results or an error.
 
 ---
 
