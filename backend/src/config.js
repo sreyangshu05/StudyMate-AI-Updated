@@ -94,7 +94,7 @@ export const config = {
   maxSelectedDocs: parseIntEnv('MAX_SELECTED_DOCS', 10, { min: 1, max: 50 }),
 
   // Quiz constraints
-  maxQuizQuestions: parseIntEnv('MAX_QUIZ_QUESTIONS', 30, { min: 5, max: 100 }),
+  maxQuizQuestions: parseIntEnv('MAX_QUIZ_QUESTIONS', 50, { min: 5, max: 100 }),
   maxChatContextDocs: parseIntEnv('MAX_CHAT_CONTEXT_DOCS', 5, { min: 1, max: 20 }),
 
   // Rate limits
