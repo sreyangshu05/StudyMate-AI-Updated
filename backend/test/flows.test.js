@@ -52,7 +52,8 @@ test('export does not leak another users data', async () => {
   // bob has no docs; alice adds one
   const bob = await call.register('Bob', 'bobflows@flows.com');
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics private document']))], { type: 'application/pdf' }), 'doc.pdf');
+  const privatePdf = await makeMultiPagePdf(['physics private document']);
+  form.append('file', new Blob([privatePdf], { type: 'application/pdf' }), 'doc.pdf');
   await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form });
   const bExp = await call.req('GET', '/api/export', { token: bob.token });
   assert.equal(bExp.status, 200);
@@ -85,7 +86,8 @@ test('IDOR: B cannot read or post to A chat (404)', async () => {
 
 test('full happy path: upload -> ingest -> QA grounded answer', async () => {
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']))], { type: 'application/pdf' }), 'doc.pdf');
+  const pdfBuf = await makeMultiPagePdf(['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']);
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
   const docId = up.data.docId;
   const ig = await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId } });

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, mock, beforeEach } from '../test/bunTest.js';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 

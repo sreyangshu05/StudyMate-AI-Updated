@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Isolated frontend test runner: runs each *.test.{js,jsx} file in its OWN
-// `bun test` process. bun:test shares module cache + mock.module state across
+// `vitest run` process. Vitest still shares module cache + mock state across
 // files in a single process (the api mock from one file leaks into another),
 // so per-file isolation is required for deterministic results.
 //
@@ -11,7 +11,8 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const BUN = process.env.BUN_BIN || 'bun';
+const VITEST = process.execPath;
+const VITEST_ENTRY = join(root, 'node_modules', 'vitest', 'vitest.mjs');
 
 let files;
 try {
@@ -37,7 +38,7 @@ if (!files.length) {
 
 let totalPass = 0, totalFail = 0, failed = [];
 for (const file of files) {
-  const res = spawnSync(BUN, ['test', file], { cwd: root, encoding: 'utf8' });
+  const res = spawnSync(VITEST, [VITEST_ENTRY, 'run', file, '--reporter=dot', '--environment', 'jsdom'], { cwd: root, encoding: 'utf8' });
   const out = (res.stdout || '') + (res.stderr || '');
   // Echo the child's tail so failures are visible.
   process.stdout.write(out.split('\n').slice(-6).join('\n') + '\n');

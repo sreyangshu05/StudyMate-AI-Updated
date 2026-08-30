@@ -25,7 +25,8 @@ async function seedUser(email) {
   const u = await call.register('Victim', email);
   // add a doc + ingest
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics sensitive']))], { type: 'application/pdf' }), 'doc.pdf');
+  const pdfBuf = await makeMultiPagePdf(['physics sensitive']);
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${u.token}` }, body: form })).json();
   const docId = up.data.docId;
   await call.req('POST', '/api/documents/ingest', { token: u.token, body: { docId } });
@@ -59,7 +60,8 @@ test('account deletion removes all owned data and invalidates tokens', async () 
 test('account deletion does not touch other users data', async () => {
   const keeper = await call.register('Keeper', 'keeper@acct.com');
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics keep me']))], { type: 'application/pdf' }), 'doc.pdf');
+  const pdfBuf = await makeMultiPagePdf(['physics keep me']);
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${keeper.token}` }, body: form })).json();
   const keeperDoc = up.data.docId;
 

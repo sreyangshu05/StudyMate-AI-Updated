@@ -1,115 +1,90 @@
-# Manual Screen-Reader Verification Checklist
+# Manual Screen Reader Verification Checklist
 
-> Automated axe-core tests cover WCAG 2.1 A/AA (component-level violations,
-> color-contrast, heading order, landmark uniqueness, keyboard Tab reachability).
-> The following must be confirmed manually with a real screen reader (NVDA on
-> Windows, VoiceOver on macOS, or TalkBack on Android) against the production
-> deployment. No tool can fully automate this.
+This checklist is for the current StudyMate UI and should be used after any change to navigation, forms, charts, chat, or document viewing.
 
-## How to run
+## What is already covered
 
-1. **NVDA (Windows, free):** Install from nvaccess.org. Press `Ctrl+Alt+N` to
-   start. Use `Tab` / `Shift+Tab` to move, `H` to jump headings, `F` to jump
-   form fields, `B` to jump buttons. Listen to what is announced.
-2. **VoiceOver (macOS, built-in):** `Cmd+F5` to toggle. `Ctrl+Option+Arrow` to
-   navigate, `Ctrl+Option+U` to open the rotor for landmarks/headings/links.
-3. Test in **both Chrome and Firefox** (if supporting Firefox).
+- Automated axe-based checks cover common WCAG issues in the component tree.
+- Local frontend tests now run under Vitest/jsdom instead of Bun-specific test APIs.
+- The app shell, auth flow, dashboard, quiz flow, chat flow, settings flow, and reader empty states are all implemented in the current codebase.
+
+## What still needs manual verification
+
+Some behaviors cannot be fully proven by automated checks alone:
+
+- Real screen reader announcements
+- Focus order after login and page transitions
+- Landmark and heading navigation
+- Chart and PDF accessibility summaries
+- Toast and validation message announcements
+
+## How to test
+
+Use one real screen reader on a real browser:
+
+- Windows: NVDA on Chrome or Firefox
+- macOS: VoiceOver on Safari or Chrome
+- Android: TalkBack if mobile accessibility is being checked
 
 ## Checklist
 
-### Authentication (Login / Register)
+### Authentication
 
-- [ ] Page title / heading "Sign in to StudyMate" is announced on load.
-- [ ] Each input announces its label: "Email address", "Password", "Full name"
-      (register), "Confirm password" (register). Inputs use `sr-only` `<label>`
-      with matching `htmlFor` — verify the association is read.
-- [ ] Password show/hide button announces "Show password" / "Hide password"
-      and its pressed state (`aria-pressed`).
-- [ ] Tabbing order goes: name (register) → email → password → show/hide →
-      confirm (register) → submit → toggle link. No traps.
-- [ ] Form validation errors are announced (error text appears in the DOM;
-      confirm NVDA reads it — consider `role="alert"` on the error container
-      for live announcement; see Enhancement below).
-- [ ] After login/register, focus moves to the main content of the dashboard
-      (not stranded on the login form).
+- [ ] The login and registration page announces the page title and main heading.
+- [ ] Each input has an accessible label.
+- [ ] Show and hide password controls announce their state.
+- [ ] Validation errors are announced when the form is submitted incorrectly.
+- [ ] After successful login or registration, focus lands on the authenticated app shell.
 
-### App Shell (Layout / Navigation)
+### App Shell and Navigation
 
-- [ ] "Skip to content" link is the **first** Tab stop on every page. Activating
-      it moves focus into `#main-content` and skips the sidebar.
-- [ ] Sidebar nav announces as a navigation landmark ("Main navigation"). The
-      active page is announced with `aria-current="page"` (NVDA: "current page").
-- [ ] Each nav link announces its name ("Home", "Reader", "Quiz", "Dashboard",
-      "Chat", "Settings") and its icon is marked `aria-hidden` (not read aloud).
-- [ ] Mobile: the hamburger button announces "Open navigation menu" /
-      "Close navigation menu" with `aria-expanded` state.
+- [ ] Skip navigation is the first meaningful keyboard target.
+- [ ] The sidebar is announced as navigation.
+- [ ] The active page is announced with `aria-current="page"`.
+- [ ] Mobile navigation controls announce open and closed state.
 
-### Reader (SourceSelector + PDFViewer)
+### Reader
 
-- [ ] Empty state "No documents uploaded yet" is announced.
-- [ ] Document list items announce the title, status ("Ready" / "Processing" /
-      "Failed"), and chunk/page counts.
-- [ ] The checkbox for each Ready document has an accessible label
-      ("Select <title>") and announces checked/unchecked state.
-- [ ] Retry button announces "Retry processing <title>"; delete announces
-      "Delete <title>".
-- [ ] PDF viewer: when no document is selected, "No PDF selected" is announced.
-- [ ] PDF page navigation (prev/next) buttons announce their action and current
-      page. PDF canvas content itself is not screen-reader accessible by
-      nature — verify a text alternative or summary is available (see
-      Enhancement below if not).
+- [ ] Empty document state is announced clearly.
+- [ ] Document rows announce title, status, and progress information.
+- [ ] Ready documents expose an accessible selection control.
+- [ ] Retry and delete actions have descriptive labels.
+- [ ] PDF viewer controls announce previous, next, zoom, and rotate actions.
+- [ ] The PDF experience provides a usable text alternative or summary for screen readers.
 
 ### Quiz
 
-- [ ] Quiz generator form announces fields (question count, difficulty).
-- [ ] Quiz questions announce the question text, answer options as a list,
-      and the selected state.
-- [ ] Submit and results are announced; the score is readable.
+- [ ] Quiz creation fields are announced correctly.
+- [ ] Questions, answer choices, and selected states are announced.
+- [ ] Score and completion state are announced after submission.
 
 ### Dashboard
 
-- [ ] Headings are announced in order: h1 "Dashboard" → h2 section titles
-      ("Progress Over Time", "Performance by Difficulty", "Topic Strengths",
-      "Areas for Improvement", "Recent Attempts"). No skipped levels.
-- [ ] Stat cards ("Quizzes Taken: 7") are read as label + value.
-- [ ] SVG charts are **not** read by screen readers by default. Each chart
-      must have a `title` or `aria-label` / `aria-describedby` with a text
-      summary of the data. Verify and add if missing (see Enhancement below).
+- [ ] Headings are announced in a logical order.
+- [ ] Stat cards are read as label plus value.
+- [ ] Charts expose a text summary or equivalent accessible description.
 
 ### Chat
 
-- [ ] "New Chat" button is announced and creates a chat.
-- [ ] Message input (textarea) announces its label / placeholder.
-- [ ] Sent messages and received answers appear in the message list and are
-      announced (consider `aria-live="polite"` on the message container so new
-      answers are read automatically — see Enhancement below).
+- [ ] New chat creation is announced.
+- [ ] The message input is labeled.
+- [ ] Assistant replies are announced when they appear.
+- [ ] Citations are readable and navigable.
 
 ### Settings
 
-- [ ] Profile name input is labeled and editable.
-- [ ] Email field is read-only and announced as such (disabled input).
-- [ ] Save button announces "Profile updated" success via toast (verify the
-      toast is announced — react-hot-toast should use `aria-live`).
-
-## Enhancements identified for future sprints
-
-These are **not** current violations but would improve the screen-reader
-experience beyond WCAG AA:
-
-1. **`role="alert"` on form error containers** — so validation errors are
-   live-announced the moment they appear, not just when focus reaches them.
-2. **`aria-live="polite"` on the chat message list** — so AI answers are read
-   aloud automatically when they arrive.
-3. **Text alternatives for SVG charts** — Dashboard charts should have an
-   `aria-label` or a visually-hidden data table as an alternative.
-4. **PDF text extraction fallback** — expose extracted text chunks as an
-   `aria-label` or collapsible text panel for the PDFViewer, so screen-reader
-   users can read the document content (the canvas is not accessible).
+- [ ] Profile name editing is announced correctly.
+- [ ] Email is clearly read-only.
+- [ ] Success and error toasts are announced.
 
 ## Result log
 
 | Date | Tester | Screen reader | Browser | Pages checked | Issues found | Status |
-|------|--------|---------------|---------|---------------|--------------|--------|
-|      |        |               |         |               |              |        |
+|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |
 
-Fill in after each manual pass. File issues for any unchecked items.
+## Notes
+
+- Keep this checklist aligned with the current UI.
+- If a feature changes, update the checklist in the same change.
+- Do not mark an item as verified unless it was tested manually in a real browser with a real screen reader.

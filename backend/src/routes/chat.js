@@ -68,7 +68,14 @@ router.post('/:id/messages', authenticate, async (req, res, next) => {
     await db.run('INSERT INTO chat_messages (chat_id, role, content) VALUES (?, ?, ?)', [chat.id, 'assistant', aiResponse]);
     const saved = await db.get('SELECT id, role, content, created_at FROM chat_messages WHERE id = last_insert_rowid()');
 
-    return ok(res, { message: aiResponse, messageId: saved.id, usedDocumentContext: passages.length > 0 });
+    // Return structured citations so frontend can render sources alongside the message.
+    const citations = passages.map(p => ({
+      docTitle: p.docTitle,
+      pageNo: p.pageNo,
+      snippet: p.snippet || p.text.slice(0, 200),
+    }));
+
+    return ok(res, { message: aiResponse, messageId: saved.id, usedDocumentContext: passages.length > 0, citations });
   } catch (err) { return next(err); }
 });
 

@@ -51,7 +51,8 @@ test(`soak: sustained mixed workload for ${SOAK_SECONDS}s stays stable`, { timeo
     while (Date.now() < deadline) {
       try {
         const form = new FormData();
-        form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics newton laws', 'energy conservation']))], { type: 'application/pdf' }), 'soak.pdf');
+        const pdfBuf = await makeMultiPagePdf(['physics newton laws', 'energy conservation']);
+        form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'soak.pdf');
         const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${user.token}` }, body: form })).json();
         const docId = up?.data?.docId;
         if (!docId) continue;

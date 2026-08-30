@@ -62,7 +62,8 @@ const QuizInterface = ({ quiz, onQuizComplete }) => {
     setQuizCompleted(true);
     
     try {
-      const response = await quizAPI.submitAttempt(quiz.id, Object.values(answers));
+      const normalizedAnswers = Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }));
+      const response = await quizAPI.submitAttempt(quiz.id, normalizedAnswers);
       toast.success('Quiz submitted successfully!');
       onQuizComplete(response.data);
     } catch (error) {
@@ -152,7 +153,7 @@ const QuizInterface = ({ quiz, onQuizComplete }) => {
             </span>
             <div className="flex-1">
               <h4 className="text-lg font-medium text-gray-900 mb-2">
-                {currentQuestion.prompt_text}
+                {currentQuestion.stem || currentQuestion.prompt_text}
               </h4>
               <p className="text-sm text-gray-500">
                 Type: {currentQuestion.type} | Difficulty: {currentQuestion.difficulty}

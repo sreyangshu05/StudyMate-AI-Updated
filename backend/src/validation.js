@@ -126,7 +126,28 @@ export function computeDefaultDistribution(n) {
 
 // Answers payload: canonical `{ questionId: answer }` object.
 export function validateAnswers(answers) {
-  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+  if (Array.isArray(answers)) {
+    const result = {};
+    for (const item of answers) {
+      if (!item || typeof item !== 'object') {
+        throw new ValidationError('answers array must contain { questionId, answer } objects');
+      }
+      const qid = Number(item.questionId);
+      if (!Number.isInteger(qid) || qid <= 0) {
+        throw new ValidationError(`Invalid question id: ${item.questionId}`);
+      }
+      if (typeof item.answer !== 'string' || item.answer.trim().length === 0) {
+        throw new ValidationError(`Answer for question ${qid} must be a non-empty string`);
+      }
+      result[qid] = item.answer;
+    }
+    if (Object.keys(result).length === 0) {
+      throw new ValidationError('answers must include at least one question');
+    }
+    return result;
+  }
+
+  if (!answers || typeof answers !== 'object') {
     throw new ValidationError('answers must be an object mapping questionId to answer');
   }
   const keys = Object.keys(answers);

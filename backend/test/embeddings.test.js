@@ -17,7 +17,8 @@ let alice, bob;
 // the post-ingest document record (READY).
 async function uploadAndIngest(token, pages) {
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(pages))], { type: 'application/pdf' }), 'doc.pdf');
+  const pdfBuf = await makeMultiPagePdf(pages);
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })).json();
   const docId = up.data.docId;
   const ig = await call.req('POST', '/api/documents/ingest', { token, body: { docId } });

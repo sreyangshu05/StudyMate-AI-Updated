@@ -143,7 +143,7 @@ const SourceSelector = ({ onDocumentSelect, selectedDocIds = [] }) => {
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="p-6 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">Source Documents</h3>
+        <h2 className="text-lg font-medium text-gray-900">Source Documents</h2>
         <p className="mt-1 text-sm text-gray-500">
           Select PDFs to use for questions and answers
         </p>
@@ -180,9 +180,9 @@ const SourceSelector = ({ onDocumentSelect, selectedDocIds = [] }) => {
         {/* Document List */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-gray-700">
+            <h3 className="text-sm font-medium text-gray-700">
               Available Documents ({documents.length})
-            </h4>
+            </h3>
             {documents.some((doc) => (doc.status || 'UPLOADING').toUpperCase() === 'READY') && (
               <button
                 onClick={handleSelectAll}

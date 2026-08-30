@@ -5,7 +5,7 @@ import { exportAPI, accountAPI, authAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 const Settings = () => {
-  const { user, login, logout } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [busy, setBusy] = useState(false);
 
@@ -28,7 +28,9 @@ const Settings = () => {
     setBusy(true);
     try {
       const res = await authAPI.updateProfile(trimmed);
-      login({ ...user, name: res.data.user.name });
+      const updatedUser = { ...user, name: res.data.user.name };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
       toast.success('Profile updated');
     } catch (e) {
       toast.error(e.response?.data?.error?.message || 'Could not update profile');

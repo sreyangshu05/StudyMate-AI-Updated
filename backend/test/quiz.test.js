@@ -15,8 +15,9 @@ let alice, bob, docId;
 
 // Upload a PDF for Alice and drive async ingest to READY. Returns the docId.
 async function uploadIngestAlice(pages = ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']) {
+  const pdfBuf = await makeMultiPagePdf(pages);
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(pages))], { type: 'application/pdf' }), 'doc.pdf');
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
   const id = up.data.docId;
   await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId: id } });
@@ -32,8 +33,9 @@ before(async () => {
   alice = await call.register('Alice', 'alice@quiz.com');
   bob = await call.register('Bob', 'bob@quiz.com');
 
+  const pdfBuf = await makeMultiPagePdf(['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']);
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']))], { type: 'application/pdf' }), 'doc.pdf');
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${alice.token}` }, body: form })).json();
   docId = up.data.docId;
   await call.req('POST', '/api/documents/ingest', { token: alice.token, body: { docId } });

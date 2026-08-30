@@ -155,11 +155,8 @@ export class EmbeddingService {
       });
     }
 
-    const top = scored
-      .filter((s) => s.similarity > 0.05)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, k);
-
+    const sorted = scored.sort((a, b) => b.similarity - a.similarity);
+    const top = sorted.slice(0, k);
     return top;
   }
 

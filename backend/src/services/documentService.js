@@ -48,15 +48,23 @@ export class DocumentService {
     const filePath = doc.file_path || path.join(this.uploadsDir, doc.filename);
     try {
       const { pages, numPages } = await this.pdfService.extractPages(filePath);
-      const chunks = this.pdfService.chunkByPage(pages);
+      let chunks = this.pdfService.chunkByPage(pages);
+      if (chunks.length === 0 && pages.length > 0) {
+        chunks = pages.map((page, index) => ({
+          page_no: page.pageNo,
+          text: page.text,
+          chunk_id: index + 1,
+          start_index: 0,
+        }));
+      }
 
       // Store chunks + embeddings (scoped to owner).
       const stored = await this.embeddingService.storePassages(docId, userId, doc.title, chunks);
 
       // Capture page count from real extraction (not a ratio).
       await db.run(
-        'UPDATE documents SET pages = ?, status = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [numPages, 'READY', docId]
+        'UPDATE documents SET pages = ?, chunk_count = ?, status = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [numPages, Math.max(stored || 0, chunks.length || 0), 'READY', docId]
       );
 
       return { document: await db.get('SELECT * FROM documents WHERE id = ?', [docId]), chunks: stored };

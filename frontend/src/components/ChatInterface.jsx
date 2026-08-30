@@ -112,11 +112,12 @@ const ChatInterface = ({ selectedDocIds }) => {
     try {
       const response = await chatAPI.sendMessage(chatId, userMessage, selectedDocIds);
       
-      // Add AI response to UI
+      // Add AI response to UI with citations
       const aiMsg = {
         id: Date.now() + 1,
         role: 'assistant',
         content: response.data.message,
+        citations: response.data.citations || [],
         created_at: new Date().toISOString()
       };
       setMessages(prev => [...prev, aiMsg]);
@@ -210,19 +211,35 @@ const ChatInterface = ({ selectedDocIds }) => {
                     key={message.id ?? `${message.role}-${message.created_at ?? 'local'}-${index}`}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
-                        {new Date(message.created_at).toLocaleTimeString()}
-                      </p>
+                    <div className="flex flex-col space-y-2">
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.role === 'user'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                        }`}>
+                          {new Date(message.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                      
+                      {/* Citations for assistant messages */}
+                      {message.role === 'assistant' && message.citations && message.citations.length > 0 && (
+                        <div className="max-w-xs lg:max-w-md space-y-1">
+                          <p className="text-xs font-medium text-gray-600">Sources:</p>
+                          {message.citations.map((citation, idx) => (
+                            <div key={idx} className="text-xs bg-blue-50 border border-blue-200 p-2 rounded">
+                              <p className="font-medium text-blue-900">{citation.docTitle}</p>
+                              <p className="text-blue-800">p. {citation.pageNo}</p>
+                              <p className="text-blue-700 mt-1 italic">{citation.snippet}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

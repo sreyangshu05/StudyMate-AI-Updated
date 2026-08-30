@@ -19,8 +19,9 @@ let ctx, call, stub;
 let alice, bob;
 
 async function upload(token, pages = ['physics newton laws', 'physics energy', 'thermodynamics heat']) {
+  const pdfBuf = await makeMultiPagePdf(pages);
   const form = new FormData();
-  form.append('file', new Blob([new Uint8Array(makeMultiPagePdf(pages))], { type: 'application/pdf' }), 'doc.pdf');
+  form.append('file', new Blob([pdfBuf], { type: 'application/pdf' }), 'doc.pdf');
   const up = await (await fetch(`${ctx.base}/api/documents/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })).json();
   return up.data.docId;
 }

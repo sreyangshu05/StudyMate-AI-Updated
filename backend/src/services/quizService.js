@@ -142,6 +142,7 @@ export class QuizService {
         quizId: q.quiz_id,
         type: q.type,
         stem: q.prompt_text,
+        prompt_text: q.prompt_text,
         choices: q.choices ? JSON.parse(q.choices) : null,
         difficulty: q.difficulty,
         pageNo: q.page_no,

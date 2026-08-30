@@ -13,14 +13,14 @@ import { makeMultiPagePdf } from './pdfgen.js';
 let ctx, call, stub;
 let alice, bob;
 
-function pdfBlob(pages = ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']) {
-  const buf = makeMultiPagePdf(pages);
-  return new Blob([new Uint8Array(buf)], { type: 'application/pdf' });
+async function pdfBlob(pages = ['physics newton laws of motion', 'physics energy conservation principles', 'thermodynamics heat physics concepts terminology']) {
+  const buf = await makeMultiPagePdf(pages);
+  return new Blob([buf], { type: 'application/pdf' });
 }
 
 async function uploadPdf(token, { name = 'doc.pdf', pages } = {}) {
   const form = new FormData();
-  form.append('file', pages ? pdfBlob(pages) : pdfBlob(), name);
+  form.append('file', await (pages ? pdfBlob(pages) : pdfBlob()), name);
   const res = await fetch(`${ctx.base}/api/documents/upload`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

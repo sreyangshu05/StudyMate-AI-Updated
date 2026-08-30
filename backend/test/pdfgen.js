@@ -1,53 +1,61 @@
-// Minimal valid multi-page PDF generator (no external deps) so tests can
-// validate that per-page extraction respects REAL page boundaries.
-//
-// Produces a PDF with one line of distinct text per page using standard
-// content stream operators (BT/ET, Tf, Td, Tj). Good enough for pdf.js to
-// reconstruct the text layer deterministically.
+import PDFDocument from 'pdfkit';
+import { PDFDocument as PDFLibDocument, rgb } from 'pdf-lib';
 
-function escapePdfString(s) {
-  return s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+// Primary PDF generator using pdfkit (simpler, compatible with legacy pdf.js)
+async function makePdfKitPdf(pageTexts) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ bufferPages: true });
+    const chunks = [];
+
+    doc.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+
+    doc.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
+
+    doc.on('error', (err) => {
+      reject(err);
+    });
+
+    // Add each page with the given text
+    for (let i = 0; i < pageTexts.length; i++) {
+      if (i > 0) {
+        doc.addPage();
+      }
+      doc.fontSize(12);
+      doc.text(pageTexts[i], 50, 700);
+    }
+
+    doc.end();
+  });
 }
 
-// Single-page content stream drawing `text` at x=40, y=700.
-function pageContent(text) {
-  return `BT /F1 24 Tf 40 700 Td (${escapePdfString(text)}) Tj ET`;
+// Fallback PDF generator using pdf-lib
+async function makePdfLibPdf(pageTexts) {
+  const pdfDoc = await PDFLibDocument.create();
+
+  for (const text of pageTexts) {
+    const page = pdfDoc.addPage([612, 792]); // Standard letter size
+    const { height } = page.getSize();
+    page.drawText(text, {
+      x: 50,
+      y: height - 100,
+      size: 12,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  // Disable compression to ensure compatibility with legacy pdf.js parser
+  const pdfBytes = await pdfDoc.save({
+    compress: false,
+  });
+  return Buffer.from(pdfBytes);
 }
 
-// Assembles a multi-page PDF. Each page's text is a distinct marker so we can
-// assert per-chunk page attribution after chunking.
-export function makeMultiPagePdf(pages) {
-  const n = pages.length;
-  const fontId = 3; // catalog=1, pagetree=2, font=3
-  const kids = pages.map((_, i) => `${4 + i * 2} 0 R`).join(' ');
-
-  const entries = [];
-  let serial = '%PDF-1.4\n';
-
-  function emit(s) {
-    entries.push({ offset: serial.length, text: `${s}\n` });
-    serial += `${s}\n`;
-  }
-
-  emit('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj');
-  emit(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${n} >>\nendobj`);
-  emit(`${fontId} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj`);
-  for (let i = 0; i < n; i += 1) {
-    const c = pageContent(pages[i]);
-    const cBuf = Buffer.from(c, 'latin1');
-    const pageObjId = 4 + i * 2;
-    const contentObjId = 5 + i * 2;
-    emit(`${pageObjId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentObjId} 0 R >>\nendobj`);
-    emit(`${contentObjId} 0 obj\n<< /Length ${cBuf.length} >>\nstream\n${c}\nendstream\nendobj`);
-  }
-
-  const xrefOffset = serial.length;
-  serial += `xref\n0 ${entries.length + 1}\n`;
-  serial += '0000000000 65535 f \n';
-  for (const e of entries) {
-    serial += `${String(e.offset).padStart(10, '0')} 00000 n \n`;
-  }
-  serial += `trailer\n<< /Size ${entries.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
-
-  return Buffer.from(serial, 'latin1');
+// Generate valid multi-page PDFs using pdfkit library.
+// This ensures compatibility with pdf-parse and the bundled pdf.js parser.
+export async function makeMultiPagePdf(pageTexts) {
+  return makePdfKitPdf(pageTexts);
 }

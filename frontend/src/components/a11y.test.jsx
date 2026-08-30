@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, mock } from '../test/bunTest.js';
 import { render, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import axe from 'axe-core';

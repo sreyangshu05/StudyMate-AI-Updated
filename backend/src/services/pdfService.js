@@ -7,6 +7,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import zlib from 'zlib';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import crypto from 'crypto';
@@ -100,6 +101,8 @@ export class PDFService {
     try {
       doc = await PDFJS.getDocument({ data: buffer }).promise;
     } catch (err) {
+      const fallback = await this.extractPagesFallback(buffer);
+      if (fallback) return fallback;
       throw new ProcessingError(`Malformed PDF: ${err.message}`);
     }
 
@@ -130,6 +133,44 @@ export class PDFService {
     return { pages, numPages, totalChars: pages.reduce((s, p) => s + p.text.length, 0) };
   }
 
+  // Lightweight parser for simple PDFs when pdf.js cannot recover.
+  // This is intentionally conservative: it only kicks in after pdf.js fails and
+  // is designed to preserve the READY pipeline for ordinary generated PDFs.
+  async extractPagesFallback(buffer) {
+    try {
+      const text = buffer.toString('latin1');
+      const pageRefs = [...text.matchAll(/(\d+)\s+\d+\s+obj\s*<<[\s\S]*?\/Type\s*\/Page\b[\s\S]*?\/Contents\s+(\d+)\s+\d+\s+R[\s\S]*?>>\s*endobj/gi)];
+      if (pageRefs.length === 0) return null;
+
+      const objects = new Map();
+      for (const match of text.matchAll(/(\d+)\s+\d+\s+obj\s*([\s\S]*?)\s*endobj/gi)) {
+        objects.set(Number(match[1]), match[2]);
+      }
+
+      const pages = [];
+      for (let i = 0; i < pageRefs.length; i += 1) {
+        const contentObj = Number(pageRefs[i][2]);
+        const body = objects.get(contentObj);
+        if (!body) continue;
+        const streamMatch = body.match(/stream\r?\n([\s\S]*?)\r?\nendstream/i) || body.match(/stream\r?\n([\s\S]*)/i);
+        if (!streamMatch) continue;
+
+        let stream = Buffer.from(streamMatch[1], 'latin1');
+        if (/\/FlateDecode/i.test(body)) {
+          try { stream = zlib.inflateSync(stream); } catch { /* best effort */ }
+        }
+
+        const extracted = extractTextFromStream(stream.toString('latin1'));
+        pages.push({ pageNo: pages.length + 1, text: extracted });
+      }
+
+      if (pages.length === 0) return null;
+      return { pages, numPages: pages.length, totalChars: pages.reduce((s, p) => s + p.text.length, 0) };
+    } catch {
+      return null;
+    }
+  }
+
   // Chunk within page boundaries so a chunk never spans pages (where feasible).
   // chunkSize ≈ target words, overlap in words. Pages are handled independently,
   // keeping page metadata accurate.
@@ -155,3 +196,31 @@ export class PDFService {
 }
 
 export default PDFService;
+
+function extractTextFromStream(streamText) {
+  const chunks = [];
+  const textOp = /(\((?:\\.|[^\\)])*\)|\[[\s\S]*?\])\s*(Tj|TJ)/g;
+  for (const match of streamText.matchAll(textOp)) {
+    const raw = match[1];
+    if (raw.startsWith('[')) {
+      for (const inner of raw.matchAll(/\((?:\\.|[^\\)])*\)/g)) {
+        chunks.push(unescapePdfString(inner[0].slice(1, -1)));
+      }
+    } else {
+      chunks.push(unescapePdfString(raw.slice(1, -1)));
+    }
+  }
+  return chunks.join(' ').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function unescapePdfString(s) {
+  return s
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\b/g, '\b')
+    .replace(/\\f/g, '\f')
+    .replace(/\\\\/g, '\\')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')');
+}

@@ -42,7 +42,7 @@ test('generateFilename strips unsafe chars and never trusts original', () => {
 });
 
 test('save writes atomically and returns file path', async () => {
-  const buf = makeMultiPagePdf(['P1 Alpha', 'P2 Beta', 'P3 Gamma']);
+  const buf = await makeMultiPagePdf(['P1 Alpha', 'P2 Beta', 'P3 Gamma']);
   const { filename, filePath } = await svc.save(buf, 'multi.pdf');
   assert.equal(path.basename(filePath), filename);
   const { existsSync } = await import('fs');
@@ -50,7 +50,7 @@ test('save writes atomically and returns file path', async () => {
 });
 
 test('extractPages returns correct per-page text (REAL page boundaries)', async () => {
-  const buf = makeMultiPagePdf(['Newton Second Law', 'Energy Conservation', 'Thermodynamics']);
+  const buf = await makeMultiPagePdf(['Newton Second Law', 'Energy Conservation', 'Thermodynamics']);
   const { filePath } = await svc.save(buf, 'physics.pdf');
   const { pages, numPages } = await svc.extractPages(filePath);
   assert.equal(numPages, 3);
@@ -64,7 +64,7 @@ test('extractPages returns correct per-page text (REAL page boundaries)', async 
 });
 
 test('chunkByPage does not cross page boundaries', async () => {
-  const buf = makeMultiPagePdf(['EqualToPageOne', 'EqualToPageTwo', 'EqualToPageThree']);
+  const buf = await makeMultiPagePdf(['EqualToPageOne', 'EqualToPageTwo', 'EqualToPageThree']);
   const { filePath } = await svc.save(buf, 'chunk.pdf');
   const { pages } = await svc.extractPages(filePath);
   const chunks = svc.chunkByPage(pages, { chunkSize: 100, overlap: 0 });
